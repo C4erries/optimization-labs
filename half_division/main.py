@@ -1,7 +1,5 @@
-eps = 0.5
-a0 = 0
-b0 = 10
-l = eps * 2
+from utils import make_dict_cached_function
+
 
 
 def f(x):
@@ -14,8 +12,10 @@ def half_division_search(func, a, b, length_limit):
     if length_limit <= 0:
         raise ValueError("length_limit must be positive.")
 
+    eval_f, cache, stats = make_dict_cached_function(func)
+
     k = 0
-    xc = (a + b) / 2
+    x = (a + b) / 2
     history = []
 
     while True:
@@ -23,25 +23,25 @@ def half_division_search(func, a, b, length_limit):
         y = a + interval_len / 4
         z = b - interval_len / 4
 
-        fy = func(y)
-        fxc = func(xc)
-        fz = func(z)
+        fy = eval_f(y)
+        fx = eval_f(x)
+        fz = eval_f(z)
 
-        if fy < fxc:
+        if fy < fx:
             a_next = a
-            b_next = xc
-            xc_next = y
-            decision = "fy < fxc -> [a, xc]"
-        elif fz < fxc:
-            a_next = xc
+            b_next = x
+            x_next = y
+            decision = "fy < fx -> [a, x]"
+        elif fz < fx:
+            a_next = x
             b_next = b
-            xc_next = z
-            decision = "fz < fxc -> [xc, b]"
+            x_next = z
+            decision = "fz < fx -> [x, b]"
         else:
             a_next = y
             b_next = z
-            xc_next = xc
-            decision = "fxc is min -> [y, z]"
+            x_next = x
+            decision = "fx is min -> [y, z]"
 
         new_len = b_next - a_next
         history.append(
@@ -49,11 +49,11 @@ def half_division_search(func, a, b, length_limit):
                 "k": k,
                 "a": a,
                 "b": b,
-                "xc": xc,
+                "x": x,
                 "y": y,
                 "z": z,
                 "fy": fy,
-                "fxc": fxc,
+                "fx": fx,
                 "fz": fz,
                 "decision": decision,
                 "new_interval": (a_next, b_next),
@@ -63,16 +63,23 @@ def half_division_search(func, a, b, length_limit):
 
         if new_len <= length_limit:
             return {
-                "x_star": xc_next,
+                "x_star": x_next,
                 "interval": (a_next, b_next),
                 "iterations": k + 1,
                 "history": history,
+                "cache": cache,
+                "stats": stats,
             }
 
         a = a_next
         b = b_next
-        xc = xc_next
+        x = x_next
         k += 1
+
+eps = 0.5
+a0 = 0
+b0 = 10
+l = eps * 2
 
 
 result = half_division_search(f, a0, b0, l)
@@ -83,3 +90,10 @@ print(
     "Uncertainty interval:",
     f"[{result['interval'][0]}, {result['interval'][1]}]",
 )
+print(
+    "Function evaluations:",
+    f"total requests = {result['stats']['requests']},",
+    f"computed = {result['stats']['computed']},",
+    f"saved = {result['stats']['requests'] - result['stats']['computed']}",
+)
+print(f"DP cache size: {len(result['cache'])}")

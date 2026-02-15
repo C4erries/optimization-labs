@@ -3,15 +3,6 @@ import numpy as np
 from utils import make_hashmap_cached_function
 
 
-eps = 0.5
-a0 = 0
-b0 = 10
-l = eps * 2
-
-
-def f(x):
-    return 2 * x * x - 12 * x
-
 
 def uniform_search(func, a, b, n):
     eval_f, cache, stats = make_hashmap_cached_function(func, maxsize=512)
@@ -37,7 +28,17 @@ def uniform_search(func, a, b, n):
     }
 
 
-# Choose N so the uncertainty interval length does not exceed l.
+eps = 0.5
+a0 = 0
+b0 = 10
+l = eps * 2
+
+
+def f(x):
+    return 2 * x * x - 12 * x
+
+
+# N должна быть выбрана так, чтобы длина интервала неопределенности не превышала l.
 n = int(np.ceil(2 * (b0 - a0) / l - 1))
 result = uniform_search(f, a0, b0, n)
 
@@ -52,9 +53,5 @@ print(
 print(
     "Function evaluations:",
     f"total requests = {result['stats']['requests']},",
-    f"computed = {result['stats']['computed']},",
-    f"saved = {result['stats']['requests'] - result['stats']['computed']}",
-    f"evicted = {result['stats']['evicted']}",
+    f"computed(N) = {result['stats']['computed']},",
 )
-print(f"DP cache size: {len(result['cache'])}")
-print(f"Cache type: {type(result['cache']).__name__}")

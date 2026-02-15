@@ -93,7 +93,5 @@ print(
 print(
     "Function evaluations:",
     f"total requests = {result['stats']['requests']},",
-    f"computed = {result['stats']['computed']},",
-    f"saved = {result['stats']['requests'] - result['stats']['computed']}",
+    f"computed(N) = {result['stats']['computed']},",
 )
-print(f"DP cache size: {len(result['cache'])}")

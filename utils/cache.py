@@ -16,7 +16,6 @@ def make_dict_cached_function(func):
 
 
 def make_hashmap_cached_function(func, maxsize=256):
-    # OrderedDict is hash-based and also keeps insertion/use order.
     cache = OrderedDict()
     stats = {"requests": 0, "computed": 0, "evicted": 0}
 

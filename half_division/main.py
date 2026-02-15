@@ -2,10 +2,6 @@ from utils import make_dict_cached_function
 
 
 
-def f(x):
-    return 2 * x * x - 12 * x
-
-
 def half_division_search(func, a, b, length_limit):
     if b <= a:
         raise ValueError("Right border must be greater than left border.")
@@ -76,10 +72,17 @@ def half_division_search(func, a, b, length_limit):
         x = x_next
         k += 1
 
+
+
 eps = 0.5
 a0 = 0
 b0 = 10
 l = eps * 2
+
+
+def f(x):
+    return 2 * x * x - 12 * x + 19
+
 
 
 result = half_division_search(f, a0, b0, l)

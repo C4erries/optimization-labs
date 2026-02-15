@@ -27,7 +27,7 @@ def uniform_search(func, a, b, n):
         "stats": stats,
     }
 
-
+delta = 0.2
 eps = 0.5
 a0 = 0
 b0 = 10
@@ -35,10 +35,10 @@ l = eps * 2
 
 
 def f(x):
-    return 2 * x * x - 12 * x
+    return 2 * x * x - 12 * x + 19
 
 
-# N должна быть выбрана так, чтобы длина интервала неопределенности не превышала l.
+# N должно быть выбрано так, чтобы длина интервала неопределенности не превышала l.
 n = int(np.ceil(2 * (b0 - a0) / l - 1))
 result = uniform_search(f, a0, b0, n)
 

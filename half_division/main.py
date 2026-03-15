@@ -73,7 +73,7 @@ def half_division_search(func, a, b, length_limit):
         k += 1
 
 
-
+delta = 0.2
 eps = 0.5
 a0 = 0
 b0 = 10
@@ -88,7 +88,8 @@ def f(x):
 result = half_division_search(f, a0, b0, l)
 
 print(f"Iterations: {result['iterations']}")
-print(f"Approximate solution x* ~= {result['x_star']}")
+print(f"Approximate solution x* ~= {result['x_star']}",
+      f"+-{(result['interval'][1] - result['interval'][0])/2}")
 print(
     "Uncertainty interval:",
     f"[{result['interval'][0]}, {result['interval'][1]}]",
@@ -98,3 +99,5 @@ print(
     f"total requests = {result['stats']['requests']},",
     f"computed(N) = {result['stats']['computed']},",
 )
+for step in result['history']:
+    print(step)

@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: half_division uniform_search dichotomy golden_section
+.PHONY: half_division uniform_search dichotomy golden_section fibonaccy
 
 half_division:
 	$(PYTHON) -m half_division.main
@@ -13,3 +13,6 @@ dichotomy:
 
 golden_section:
 	$(PYTHON) -m golden_section.main
+
+fibonaccy:
+	$(PYTHON) -m fibonaccy.main

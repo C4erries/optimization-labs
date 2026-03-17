@@ -66,6 +66,7 @@ def fibonacci_search(func, a, b, length_limit):
         )
 
         if k == n - 3:
+            print(x1, x2)
             return {
                 "x_star": (a_next + b_next) / 2,
                 "interval": (a_next, b_next),

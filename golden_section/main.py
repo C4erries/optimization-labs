@@ -1,5 +1,7 @@
 from math import sqrt
 
+import numpy as np
+
 from utils import make_dict_cached_function
 from utils.table import format_table
 
@@ -74,14 +76,14 @@ def golden_section_search(func, a, b, length_limit):
 
 
 delta = 0.2
-eps = 0.5
-a0 = 0
-b0 = 10
+eps = 0.005
+a0 = 0.1
+b0 = 100
 l = eps * 2
 
 
 def f(x):
-    return 2 * x * x - 12 * x + 19
+    return x**2 * np.log(x)
 
 
 result = golden_section_search(f, a0, b0, l)

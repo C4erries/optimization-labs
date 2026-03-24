@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: half_division uniform_search dichotomy golden_section fibonaccy svenn
+.PHONY: half_division uniform_search dichotomy golden_section fibonaccy svenn steepest_descent
 
 half_division:
 	$(PYTHON) -m half_division.main
@@ -19,3 +19,6 @@ fibonaccy:
 
 svenn:
 	$(PYTHON) -m svenn.main
+
+steepest_descent:
+	$(PYTHON) -m steepest_descent.main

@@ -63,27 +63,27 @@ def golden_section_search(func, a, b, length_limit):
             b = x2
             x2 = x1
             fx2 = fx1
-            x1 = b - tau * (b - a)
+            x1 = b + a - x2
             fx1 = eval_f(x1)
         else:
             a = x1
             x1 = x2
             fx1 = fx2
-            x2 = a + tau * (b - a)
+            x2 = b + a - x1
             fx2 = eval_f(x2)
 
         k += 1
 
 
 delta = 0.2
-eps = 0.005
-a0 = 0.1
-b0 = 100
+eps = 0.5
+a0 = 0
+b0 = 10
 l = eps * 2
 
 
 def f(x):
-    return x**2 * np.log(x)
+    return 2 * x * x - 12 * x + 19
 
 
 result = golden_section_search(f, a0, b0, l)

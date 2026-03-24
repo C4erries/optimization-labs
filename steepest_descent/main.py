@@ -1,0 +1,187 @@
+import numpy as np
+
+from utils import (
+    bracket_minimum_on_ray,
+    format_vector,
+    golden_section_line_search,
+    infinity_norm,
+    make_cached_nd_function,
+    numerical_gradient,
+)
+from utils.table import format_table
+
+
+def steepest_descent(
+    func,
+    x0,
+    eps1,
+    eps2,
+    delta,
+    M,
+    initial_step=0.1,
+    max_line_search_iterations=50,
+):
+    if eps1 <= 0:
+        raise ValueError("eps1 must be positive.")
+    if eps2 <= 0:
+        raise ValueError("eps2 must be positive.")
+    if delta <= 0:
+        raise ValueError("delta must be positive.")
+    if M < 0:
+        raise ValueError("M must be non-negative.")
+
+    eval_f, cache, stats = make_cached_nd_function(func)
+    x = np.asarray(x0, dtype=float).reshape(-1)
+    history = []
+    k = 0
+    prev_eps2_satisfied = False
+
+    while True:
+        fx = eval_f(x)
+        grad = numerical_gradient(eval_f, x, delta)
+        grad_norm = infinity_norm(grad)
+
+        if grad_norm <= eps1:
+            history.append(
+                {
+                    "k": k,
+                    "x_k": format_vector(x),
+                    "f_k": fx,
+                    "grad_norm": grad_norm,
+                    "t_k": "-",
+                    "line_interval": "-",
+                    "x_next": format_vector(x),
+                    "f_next": fx,
+                    "dx_norm": 0.0,
+                    "df_abs": 0.0,
+                    "decision": "grad <= eps1",
+                }
+            )
+            return {
+                "x_star": x,
+                "f_star": fx,
+                "iterations": len(history),
+                "history": history,
+                "cache": cache,
+                "stats": stats,
+                "reason": "gradient",
+            }
+
+        if k >= M:
+            history.append(
+                {
+                    "k": k,
+                    "x_k": format_vector(x),
+                    "f_k": fx,
+                    "grad_norm": grad_norm,
+                    "t_k": "-",
+                    "line_interval": "-",
+                    "x_next": format_vector(x),
+                    "f_next": fx,
+                    "dx_norm": 0.0,
+                    "df_abs": 0.0,
+                    "decision": "k >= M",
+                }
+            )
+            return {
+                "x_star": x,
+                "f_star": fx,
+                "iterations": len(history),
+                "history": history,
+                "cache": cache,
+                "stats": stats,
+                "reason": "max_iterations",
+            }
+
+        phi = lambda t: eval_f(x - t * grad)
+        line_a, line_b = bracket_minimum_on_ray(
+            phi, initial_step, max_line_search_iterations
+        )
+        line_eps = eps2 / max(1.0, grad_norm)
+        t_k, _ = golden_section_line_search(phi, line_a, line_b, line_eps)
+
+        x_next = x - t_k * grad
+        f_next = eval_f(x_next)
+        dx_norm = infinity_norm(x_next - x)
+        df_abs = abs(f_next - fx)
+
+        decision = "continue"
+        eps2_satisfied = dx_norm <= eps2 and df_abs <= eps2
+        if eps2_satisfied and prev_eps2_satisfied:
+            decision = "eps2 x2 -> stop"
+        elif eps2_satisfied:
+            decision = "eps2 x1"
+
+        history.append(
+            {
+                "k": k,
+                "x_k": format_vector(x),
+                "f_k": fx,
+                "grad_norm": grad_norm,
+                "t_k": t_k,
+                "line_interval": f"[{line_a:.6f}, {line_b:.6f}]",
+                "x_next": format_vector(x_next),
+                "f_next": f"{f_next:.6f}",
+                "dx_norm": dx_norm,
+                "df_abs": df_abs,
+                "decision": decision,
+            }
+        )
+
+        if eps2_satisfied and prev_eps2_satisfied:
+            return {
+                "x_star": x_next,
+                "f_star": f_next,
+                "iterations": len(history),
+                "history": history,
+                "cache": cache,
+                "stats": stats,
+                "reason": "point_and_value_twice",
+            }
+
+        prev_eps2_satisfied = eps2_satisfied
+        x = x_next
+        k += 1
+
+
+eps1 = 1e-4
+eps2 = 1e-4
+delta = 1e-6
+M = 100
+x0 = np.array([2.0, 1.5], dtype=float)
+
+
+def f(x):
+    return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
+
+
+result = steepest_descent(f, x0, eps1, eps2, delta, M)
+
+print(f"Iterations: {result['iterations']}")
+print(f"Stop reason: {result['reason']}")
+print(f"Approximate solution x* ~= {format_vector(result['x_star'])}")
+print(f"f(x*) ~= {result['f_star']}")
+print(
+    "Function evaluations:",
+    f"total requests = {result['stats']['requests']},",
+    f"computed(N) = {result['stats']['computed']},",
+)
+print("Steps:")
+print(
+    format_table(
+        result["history"],
+        [
+            {"key": "k", "title": "k", "align": "right"},
+            {"key": "x_k", "title": "x_k"},
+            {"key": "f_k", "title": "f(x_k)", "align": "right"},
+            {"key": "grad_norm", "title": "||grad||_inf", "align": "right"},
+            {"key": "t_k", "title": "t_k", "align": "right"},
+            #{"key": "line_interval", "title": "[a_t, b_t]"},
+            {"key": "x_next", "title": "x_{k+1}"},
+            {"key": "f_next", "title": "f(x_{k+1})", "align": "right"},
+            {"key": "dx_norm", "title": "||dx||_inf", "align": "right"},
+            {"key": "df_abs", "title": "|df|", "align": "right"},
+            {"key": "decision", "title": "decision"},
+        ],
+    )
+)

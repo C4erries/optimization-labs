@@ -73,8 +73,11 @@ def svenn_search(func, x0, step, max_iterations=50):
     x_curr = x0 + direction * step
     f_curr = f_right if direction > 0 else f_left
 
+    current_step = step
+
     for k in range(1, max_iterations + 1):
-        x_next = x0 + direction * (2**k) * step
+        current_step *= 2
+        x_next = x0 + direction * current_step
         f_next = eval_f(x_next)
 
         if f_next >= f_curr:
@@ -128,7 +131,7 @@ step0 = 0.1
 
 
 def f(x):
-    return x**2 * np.log(x)
+    return 2 * x * x - 12 * x + 19
 
 
 result = svenn_search(f, x0, step0)

@@ -126,7 +126,7 @@ def svenn_search(func, x0, step, max_iterations=50):
     raise RuntimeError("Failed to bracket a minimum within max_iterations.")
 
 
-x0 = 1.0
+x0 = 100.0
 step0 = 0.1
 
 

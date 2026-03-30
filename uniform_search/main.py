@@ -44,7 +44,7 @@ result = uniform_search(f, a0, b0, n)
 print(f"N = {n}")
 print("Points x_i:", result["x_points"])
 print("Values f(x_i):", result["f_values"])
-print(f"Approximate solution x* ~= {result['xk']}")
+print(f"Approximate solution x* = {result['xk']} +- {eps}")
 print(
     "Uncertainty interval:",
     f"[{result['interval'][0]}, {result['interval'][1]}]",

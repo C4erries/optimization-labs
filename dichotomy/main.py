@@ -62,8 +62,8 @@ def dichotomy_search(func, a, b, length_limit, delta):
         k += 1
 
 
-delta = 0.2
-eps = 0.5
+delta = 0.002
+eps = 0.005
 a0 = 0
 b0 = 10
 l = eps * 2

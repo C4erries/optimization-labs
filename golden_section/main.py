@@ -76,7 +76,7 @@ def golden_section_search(func, a, b, length_limit):
 
 
 delta = 0.2
-eps = 0.5
+eps = 0.005
 a0 = 0
 b0 = 10
 l = eps * 2

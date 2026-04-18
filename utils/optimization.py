@@ -14,6 +14,13 @@ def infinity_norm(vector):
     return float(np.max(np.abs(array)))
 
 
+def euclidean_norm(vector):
+    array = np.asarray(vector, dtype=float)
+    if array.size == 0:
+        return 0.0
+    return float(np.linalg.norm(array))
+
+
 def numerical_gradient(eval_f, x, delta):
     gradient = np.zeros_like(x, dtype=float)
 
@@ -23,6 +30,49 @@ def numerical_gradient(eval_f, x, delta):
         gradient[index] = (eval_f(x + shift) - eval_f(x - shift)) / (2 * delta)
 
     return gradient
+
+
+def numerical_hessian(eval_f, x, delta):
+    x = np.asarray(x, dtype=float).reshape(-1)
+    n = x.size
+    hessian = np.zeros((n, n), dtype=float)
+    step = float(delta)
+    if step <= 0:
+        raise ValueError("delta must be positive.")
+    fx = eval_f(x)
+
+    for i in range(n):
+        shift_i = np.zeros_like(x, dtype=float)
+        shift_i[i] = step
+        hessian[i, i] = (
+            eval_f(x + shift_i) - 2 * fx + eval_f(x - shift_i)
+        ) / (step * step)
+
+        for j in range(i + 1, n):
+            shift_j = np.zeros_like(x, dtype=float)
+            shift_j[j] = step
+            value = (
+                eval_f(x + shift_i + shift_j)
+                - eval_f(x + shift_i - shift_j)
+                - eval_f(x - shift_i + shift_j)
+                + eval_f(x - shift_i - shift_j)
+            ) / (4 * step * step)
+            hessian[i, j] = value
+            hessian[j, i] = value
+
+    return hessian
+
+
+def is_positive_definite(matrix):
+    array = np.asarray(matrix, dtype=float)
+    if array.ndim != 2 or array.shape[0] != array.shape[1]:
+        return False
+
+    try:
+        np.linalg.cholesky((array + array.T) / 2)
+    except np.linalg.LinAlgError:
+        return False
+    return True
 
 
 def bracket_minimum_on_ray(phi, initial_step, max_iterations):

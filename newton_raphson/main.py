@@ -4,7 +4,7 @@ from utils import (
     bracket_minimum_on_ray,
     euclidean_norm,
     format_vector,
-    golden_section_line_search,
+    golden_section_phi_search,
     is_positive_definite,
     make_cached_nd_function,
     numerical_gradient,
@@ -21,7 +21,7 @@ def newton_raphson(
     delta,
     M,
     initial_step=0.1,
-    max_line_search_iterations=50,
+    max_phi_iterations=50,
 ):
     if eps1 <= 0:
         raise ValueError("eps1 must be positive.")
@@ -136,11 +136,9 @@ def newton_raphson(
             }
 
         phi = lambda t: eval_f(x + t * direction)
-        line_a, line_b = bracket_minimum_on_ray(
-            phi, initial_step, max_line_search_iterations
-        )
-        line_eps = eps2 / max(1.0, direction_norm)
-        t_k, _ = golden_section_line_search(phi, line_a, line_b, line_eps)
+        phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
+        phi_eps = eps2 / max(1.0, direction_norm)
+        t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
 
         x_next = x + t_k * direction
         f_next = eval_f(x_next)

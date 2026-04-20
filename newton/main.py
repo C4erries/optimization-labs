@@ -4,7 +4,7 @@ from utils import (
     bracket_minimum_on_ray,
     euclidean_norm,
     format_vector,
-    golden_section_line_search,
+    golden_section_phi_search,
     is_positive_definite,
     make_cached_nd_function,
     numerical_gradient,
@@ -21,7 +21,7 @@ def newton_method(
     delta,
     M,
     initial_step=0.1,
-    max_line_search_iterations=50,
+    max_phi_iterations=50,
 ):
     if eps1 <= 0:
         raise ValueError("eps1 must be positive.")
@@ -106,21 +106,21 @@ def newton_method(
                 direction = -grad
                 step_type = "Steepest fallback"
                 phi = lambda t: eval_f(x + t * direction)
-                line_a, line_b = bracket_minimum_on_ray(
-                    phi, initial_step, max_line_search_iterations
+                phi_a, phi_b = bracket_minimum_on_ray(
+                    phi, initial_step, max_phi_iterations
                 )
-                line_eps = eps2 / max(1.0, euclidean_norm(direction))
-                t_k, _ = golden_section_line_search(phi, line_a, line_b, line_eps)
+                phi_eps = eps2 / max(1.0, euclidean_norm(direction))
+                t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
                 direction = t_k * direction
         else:
             direction = -grad
             step_type = "Steepest fallback"
             phi = lambda t: eval_f(x + t * direction)
-            line_a, line_b = bracket_minimum_on_ray(
-                phi, initial_step, max_line_search_iterations
+            phi_a, phi_b = bracket_minimum_on_ray(
+                phi, initial_step, max_phi_iterations
             )
-            line_eps = eps2 / max(1.0, euclidean_norm(direction))
-            t_k, _ = golden_section_line_search(phi, line_a, line_b, line_eps)
+            phi_eps = eps2 / max(1.0, euclidean_norm(direction))
+            t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
             direction = t_k * direction
 
         direction_norm = euclidean_norm(direction)

@@ -1,4 +1,4 @@
-PYTHON ?= python
+PYTHON ?= ~/myenv/bin/python3.12
 
 .PHONY: half_division uniform_search dichotomy golden_section fibonaccy svenn steepest_descent fletcher_reeves newton newton_raphson marquardt
 

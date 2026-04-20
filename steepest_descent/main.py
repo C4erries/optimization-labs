@@ -3,7 +3,7 @@ import numpy as np
 from utils import (
     bracket_minimum_on_ray,
     format_vector,
-    golden_section_line_search,
+    golden_section_phi_search,
     infinity_norm,
     make_cached_nd_function,
     numerical_gradient,
@@ -19,7 +19,7 @@ def steepest_descent(
     delta,
     M,
     initial_step=0.1,
-    max_line_search_iterations=50,
+    max_phi_iterations=50,
 ):
     if eps1 <= 0:
         raise ValueError("eps1 must be positive.")
@@ -94,11 +94,9 @@ def steepest_descent(
             }
 
         phi = lambda t: eval_f(x - t * grad)
-        line_a, line_b = bracket_minimum_on_ray(
-            phi, initial_step, max_line_search_iterations
-        )
-        line_eps = eps2 / max(1.0, grad_norm)
-        t_k, _ = golden_section_line_search(phi, line_a, line_b, line_eps)
+        phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
+        phi_eps = eps2 / max(1.0, grad_norm)
+        t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
 
         x_next = x - t_k * grad
         f_next = eval_f(x_next)
@@ -119,7 +117,7 @@ def steepest_descent(
                 "f_k": fx,
                 "grad_norm": grad_norm,
                 "t_k": t_k,
-                "line_interval": f"[{line_a:.6f}, {line_b:.6f}]",
+                "line_interval": f"[{phi_a:.6f}, {phi_b:.6f}]",
                 "x_next": format_vector(x_next),
                 "f_next": f"{f_next:.6f}",
                 "dx_norm": dx_norm,
@@ -146,12 +144,17 @@ def steepest_descent(
 
 eps1 = 1e-4
 eps2 = 1e-4
-delta = 1e-6
+delta = min(1e-6, eps1, eps2)
 M = 100
-x0 = np.array([2.0, 1.5], dtype=float)
-
+x0 = np.array([
+    2.0, 
+    1.5, 
+    # 0
+    ], dtype=float)
+# (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
 
 def f(x):
+    # return (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
     return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
 
 

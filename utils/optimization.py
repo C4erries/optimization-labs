@@ -102,10 +102,10 @@ def bracket_minimum_on_ray(phi, initial_step, max_iterations):
         t_curr = t_next
         f_curr = f_next
 
-    raise RuntimeError("Failed to bracket a line-search minimum.")
+    raise RuntimeError("Failed to bracket a phi minimum.")
 
 
-def golden_section_line_search(phi, a, b, length_limit):
+def golden_section_phi_search(phi, a, b, length_limit):
     if b <= a:
         raise ValueError("Right border must be greater than left border.")
     if length_limit <= 0:

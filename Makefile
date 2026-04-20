@@ -1,6 +1,6 @@
 PYTHON ?= ~/myenv/bin/python3.12
 
-.PHONY: half_division uniform_search dichotomy golden_section fibonaccy svenn steepest_descent fletcher_reeves newton newton_raphson marquardt
+.PHONY: half_division uniform_search dichotomy golden_section fibonaccy svenn steepest_descent fletcher_reeves newton newton_raphson marquardt powell lagrange_multipliers
 
 half_division:
 	$(PYTHON) -m half_division.main
@@ -34,3 +34,9 @@ newton_raphson:
 
 marquardt:
 	$(PYTHON) -m marquardt.main
+
+powell:
+	$(PYTHON) -m powell.main
+
+lagrange_multipliers:
+	$(PYTHON) -m lagrange_multipliers.main

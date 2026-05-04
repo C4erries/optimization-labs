@@ -6,12 +6,12 @@ from utils import (
     format_vector,
     golden_section_phi_search,
     make_cached_nd_function,
-    numerical_gradient,
 )
 from utils.table import format_table
 
 
 def _minimize_along_direction(eval_f, x, direction, initial_step, max_phi_iterations, phi_eps):
+    # Эта функция у вас написана верно: она делает 1D минимизацию вдоль луча
     phi = lambda t: eval_f(x + t * direction)
     f0 = phi(0.0)
     f_plus = phi(initial_step)
@@ -40,196 +40,181 @@ def _minimize_along_direction(eval_f, x, direction, initial_step, max_phi_iterat
 def powell_method(
     func,
     x0,
-    eps1,
-    eps2,
-    delta,
+    eps,
     M,
     initial_step=0.1,
     max_phi_iterations=50,
 ):
-    if eps1 <= 0:
-        raise ValueError("eps1 must be positive.")
-    if eps2 <= 0:
-        raise ValueError("eps2 must be positive.")
-    if delta <= 0:
-        raise ValueError("delta must be positive.")
+    if eps <= 0:
+        raise ValueError("eps must be positive.")
     if M < 0:
         raise ValueError("M must be non-negative.")
 
     eval_f, cache, stats = make_cached_nd_function(func)
     x = np.asarray(x0, dtype=float).reshape(-1)
-    directions = np.eye(x.size, dtype=float)
-    history = []
+    n = x.size
+    
+    # Шаг 1. Задать начальные направления поиска (единичные орты)
+    # Используем индексацию 1..n для удобства сопоставления с учебником.
+    # d[0] будет использоваться для хранения d_n.
+    d =[np.zeros(n) for _ in range(n + 1)]
+    for i in range(1, n + 1):
+        d[i][i - 1] = 1.0
+
+    history =[]
     k = 0
-    prev_eps2_satisfied = False
+    x_k = x.copy()
 
-    while True:
-        fx = eval_f(x)
-        grad = numerical_gradient(eval_f, x, delta)
-        grad_norm = euclidean_norm(grad)
+    while k < M:
+        # Шаг 1 (начало итерации): Положим d_0 = d_n, y^0 = x^k
+        d[0] = d[n].copy()
+        
+        # Массив точек y^0, y^1, ..., y^{n+1}
+        y =[np.zeros(n) for _ in range(n + 2)]
+        y[0] = x_k.copy()
+        
+        # Массив для хранения скалярных шагов t_i
+        t = np.zeros(n + 1)
+        
+        stop_reason = None
+        
+        # Шаг 2. Найти y^{i+1} = y^i + t_i * d_i для i = 0, ..., n
+        for i in range(n + 1):
+            direction = d[i]
+            dir_norm = euclidean_norm(direction)
+            
+            if dir_norm == 0:
+                t[i] = 0.0
+                y[i+1] = y[i].copy()
+            else:
+                phi_eps = eps / max(1.0, dir_norm)
+                t[i], y[i+1], _ = _minimize_along_direction(
+                    eval_f,
+                    y[i],
+                    direction,
+                    initial_step,
+                    max_phi_iterations,
+                    phi_eps,
+                )
+                
+            # Шаг 3. Проверить выполнение условий остановки внутри цикла
+            if i == n - 1:
+                # б) если i = n - 1, проверить y^n == y^0
+                if euclidean_norm(y[n] - y[0]) < 1e-10:
+                    x_k = y[n].copy()
+                    stop_reason = "y^n == y^0"
+                    break
+            elif i == n:
+                # в) если i = n, проверить y^{n+1} == y^1
+                if euclidean_norm(y[n+1] - y[1]) < 1e-10:
+                    x_k = y[n+1].copy()
+                    stop_reason = "y^{n+1} == y^1"
+                    break
 
-        if grad_norm <= eps1:
-            history.append(
-                {
-                    "k": k,
-                    "x_k": format_vector(x),
-                    "f_k": fx,
-                    "grad_norm": grad_norm,
-                    "best_dir": "-",
-                    "base_steps": "-",
-                    "t_disp": "-",
-                    "disp_norm": 0.0,
-                    "x_next": format_vector(x),
-                    "f_next": fx,
-                    "dx_norm": 0.0,
-                    "df_abs": 0.0,
-                    "decision": "grad <= eps1",
-                }
-            )
-            return {
-                "x_star": x,
-                "f_star": fx,
-                "iterations": len(history),
-                "history": history,
-                "cache": cache,
-                "stats": stats,
-                "reason": "gradient",
-            }
-
-        if k >= M:
-            history.append(
-                {
-                    "k": k,
-                    "x_k": format_vector(x),
-                    "f_k": fx,
-                    "grad_norm": grad_norm,
-                    "best_dir": "-",
-                    "base_steps": "-",
-                    "t_disp": "-",
-                    "disp_norm": 0.0,
-                    "x_next": format_vector(x),
-                    "f_next": fx,
-                    "dx_norm": 0.0,
-                    "df_abs": 0.0,
-                    "decision": "k >= M",
-                }
-            )
-            return {
-                "x_star": x,
-                "f_star": fx,
-                "iterations": len(history),
-                "history": history,
-                "cache": cache,
-                "stats": stats,
-                "reason": "max_iterations",
-            }
-
-        x_start = x.copy()
-        f_start = fx
-        x_curr = x.copy()
-        f_curr = fx
-        best_dir_index = 0
-        best_decrease = -np.inf
-        base_step_values = []
-
-        for index, direction in enumerate(directions):
-            direction_norm = euclidean_norm(direction)
-            if direction_norm == 0:
-                base_step_values.append("0")
-                continue
-
-            phi_eps = eps2 / max(1.0, direction_norm)
-            t_i, x_curr, f_next = _minimize_along_direction(
-                eval_f,
-                x_curr,
-                direction,
-                initial_step,
-                max_phi_iterations,
-                phi_eps,
-            )
-            decrease = f_curr - f_next
-            base_step_values.append(f"{t_i:.6f}")
-            if decrease > best_decrease:
-                best_decrease = decrease
-                best_dir_index = index
-            f_curr = f_next
-
-        displacement = x_curr - x_start
-        disp_norm = euclidean_norm(displacement)
-        t_disp = 0.0
-        x_next = x_curr
-        f_next = f_curr
-
-        if disp_norm > 0:
-            phi_eps = eps2 / max(1.0, disp_norm)
-            t_disp, x_next, f_next = _minimize_along_direction(
-                eval_f,
-                x_curr,
-                displacement,
-                initial_step,
-                max_phi_iterations,
-                phi_eps,
-            )
-
-            directions[best_dir_index] = displacement
-
-        dx_norm = euclidean_norm(x_next - x)
-        df_abs = abs(f_next - fx)
-
-        decision = "continue"
-        eps2_satisfied = dx_norm <= eps2 and df_abs <= eps2
-        if eps2_satisfied and prev_eps2_satisfied:
-            decision = "eps2 x2 -> stop"
-        elif eps2_satisfied:
-            decision = "eps2 x1"
-
-        history.append(
-            {
+        if stop_reason:
+            t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t[:i+1]))
+            history.append({
                 "k": k,
-                "x_k": format_vector(x),
-                "f_k": fx,
-                "grad_norm": grad_norm,
-                "best_dir": best_dir_index + 1,
-                "base_steps": "[" + ", ".join(base_step_values) + "]",
-                "t_disp": t_disp,
-                "disp_norm": disp_norm,
-                "x_next": format_vector(x_next),
-                "f_next": f"{f_next:.6f}",
-                "dx_norm": dx_norm,
-                "df_abs": df_abs,
-                "decision": decision,
+                "x_k": format_vector(y[0]),
+                "t_values": t_str,
+                "new_dir": "-",
+                "rank": "-",
+                "x_next": format_vector(x_k),
+                "dx_norm": 0.0,
+                "decision": f"stop ({stop_reason})"
+            })
+            return {
+                "x_star": x_k,
+                "f_star": eval_f(x_k),
+                "iterations": k + 1,
+                "history": history,
+                "cache": cache,
+                "stats": stats,
+                "reason": stop_reason,
             }
-        )
-
-        if eps2_satisfied and prev_eps2_satisfied:
+            
+        # Шаг 4. Положить x^{k+1} = y^{n+1}
+        x_next = y[n+1].copy()
+        dx_norm = euclidean_norm(x_next - y[0])
+        
+        # Строим новое сопряженное направление
+        d_new = y[n+1] - y[1]
+        
+        # Формируем новую систему направлений: d_bar
+        d_bar =[np.zeros(n) for _ in range(n + 1)]
+        d_bar[n] = d_new.copy()
+        for i in range(1, n):
+            d_bar[i] = d[i+1].copy()
+            
+        # Проверяем линейную независимость (ранг)
+        matrix_D = np.column_stack([d_bar[i] for i in range(1, n+1)])
+        rank = np.linalg.matrix_rank(matrix_D)
+        
+        if dx_norm < eps:
+            decision = "stop (||dx|| < eps)"
+        else:
+            decision = "update dirs" if rank == n else "keep old dirs"
+            
+        t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t))
+        
+        history.append({
+            "k": k,
+            "x_k": format_vector(y[0]),
+            "t_values": t_str, # Выводим t_i как независимые скаляры!
+            "new_dir": format_vector(d_new),
+            "rank": f"{rank}/{n}",
+            "x_next": format_vector(x_next),
+            "dx_norm": f"{dx_norm:.6f}",
+            "decision": decision
+        })
+        
+        # a) если ||x^{k+1} - x^k|| < eps, поиск завершить
+        if dx_norm < eps:
             return {
                 "x_star": x_next,
-                "f_star": f_next,
-                "iterations": len(history),
+                "f_star": eval_f(x_next),
+                "iterations": k + 1,
                 "history": history,
                 "cache": cache,
                 "stats": stats,
-                "reason": "point_and_value_twice",
+                "reason": "dx < eps",
             }
-
-        prev_eps2_satisfied = eps2_satisfied
-        x = x_next
+            
+        # Обновляем направления только если матрица независима
+        if rank == n:
+            for i in range(1, n+1):
+                d[i] = d_bar[i].copy()
+        # Иначе - оставляем старые
+        
+        x_k = x_next
         k += 1
 
+    return {
+        "x_star": x_k,
+        "f_star": eval_f(x_k),
+        "iterations": k,
+        "history": history,
+        "cache": cache,
+        "stats": stats,
+        "reason": "max_iterations",
+    }
 
-eps1 = 1e-4
-eps2 = 1e-4
-delta = 1e-6
+
+eps = 1e-4
 M = 100
-x0 = np.array([2.0, 1.5], dtype=float)
-
+x0 = np.array([
+    2.0, 
+    1.5, 
+    # 0
+    ], dtype=float)
+# (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
 
 def f(x):
+    # return (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
     return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
 
-
 def main():
-    result = powell_method(f, x0, eps1, eps2, delta, M)
+    result = powell_method(f, x0, eps, M)
 
     print(f"Iterations: {result['iterations']}")
     print(f"Stop reason: {result['reason']}")
@@ -240,28 +225,23 @@ def main():
         f"total requests = {result['stats']['requests']},",
         f"computed(N) = {result['stats']['computed']},",
     )
-    print("Steps:")
+    print("\nSteps:")
     print(
         format_table(
-            result["history"],
-            [
+            result["history"],[
                 {"key": "k", "title": "k", "align": "right"},
                 {"key": "x_k", "title": "x_k"},
-                {"key": "f_k", "title": "f(x_k)", "align": "right"},
-                {"key": "grad_norm", "title": "||grad||_2", "align": "right"},
-                {"key": "best_dir", "title": "best dir", "align": "right"},
-                {"key": "base_steps", "title": "t_i"},
-                {"key": "t_disp", "title": "t_disp", "align": "right"},
-                {"key": "disp_norm", "title": "||disp||_2", "align": "right"},
+                # Заменил "векторный" вывод t_i на явный скалярный:
+                {"key": "t_values", "title": "1D steps (t_i)"}, 
+                {"key": "new_dir", "title": "new d_n (y^{n+1}-y^1)"},
+                {"key": "rank", "title": "rank"},
                 {"key": "x_next", "title": "x_{k+1}"},
-                {"key": "f_next", "title": "f(x_{k+1})", "align": "right"},
                 {"key": "dx_norm", "title": "||dx||_2", "align": "right"},
-                {"key": "df_abs", "title": "|df|", "align": "right"},
                 {"key": "decision", "title": "decision"},
             ],
         )
     )
 
-
 if __name__ == "__main__":
     main()
+

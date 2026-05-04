@@ -187,14 +187,18 @@ def fletcher_reeves(
 
 eps1 = 1e-4
 eps2 = 1e-4
-delta = 1e-6
+delta = min(1e-6, eps1, eps2)
 M = 100
-x0 = np.array([2.0, 1.5], dtype=float)
-
+x0 = np.array([
+    2.0, 
+    1.5, 
+    # 0
+    ], dtype=float)
+# (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
 
 def f(x):
+    # return (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
     return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
-
 
 def main():
     result = fletcher_reeves(f, x0, eps1, eps2, delta, M)

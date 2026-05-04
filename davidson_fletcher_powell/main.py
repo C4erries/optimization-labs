@@ -32,10 +32,12 @@ def davidson_fletcher_powell(
 
     eval_f, cache, stats = make_cached_nd_function(func)
     x = np.asarray(x0, dtype=float).reshape(-1)
-    h_inv = np.eye(x.size, dtype=float)
+    a_k = np.eye(x.size, dtype=float)
     history = []
     k = 0
     prev_eps2_satisfied = False
+    prev_x = None
+    prev_grad = None
 
     while True:
         fx = eval_f(x)
@@ -94,12 +96,20 @@ def davidson_fletcher_powell(
                 "reason": "max_iterations",
             }
 
-        direction = -h_inv @ grad
-        update_status = "DFP"
-        if float(np.dot(direction, grad)) >= 0:
-            h_inv = np.eye(x.size, dtype=float)
-            direction = -grad
-            update_status = "reset"
+        update_status = "A^0 = I" if k == 0 else "skip"
+        if k >= 1:
+            dx = x - prev_x
+            dg = grad - prev_grad
+            dx_dg = float(np.dot(dx, dg))
+            a_dg = a_k @ dg
+            dg_a_dg = float(np.dot(dg, a_dg))
+
+            if abs(dx_dg) > 1e-14 and abs(dg_a_dg) > 1e-14:
+                a_c = np.outer(dx, dx) / dx_dg - np.outer(a_dg, a_dg) / dg_a_dg
+                a_k = a_k + a_c
+                update_status = "DFP"
+
+        direction = -a_k @ grad
 
         direction_norm = euclidean_norm(direction)
         if direction_norm == 0:
@@ -128,27 +138,15 @@ def davidson_fletcher_powell(
                 "reason": "zero_direction",
             }
 
-        phi = lambda t: eval_f(x + t * direction)
+        phi = lambda t: eval_f(x - t * (a_k @ grad))
         phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
         phi_eps = eps2 / max(1.0, direction_norm)
         t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
 
         x_next = x + t_k * direction
         f_next = eval_f(x_next)
-        grad_next = numerical_gradient(eval_f, x_next, delta)
-        s = x_next - x
-        y = grad_next - grad
-        sy = float(np.dot(s, y))
-        hy = h_inv @ y
-        yhy = float(np.dot(y, hy))
 
-        if sy > 1e-14 and yhy > 1e-14:
-            h_inv = h_inv + np.outer(s, s) / sy - np.outer(hy, hy) / yhy
-        else:
-            h_inv = np.eye(x.size, dtype=float)
-            update_status = "skip/reset"
-
-        dx_norm = euclidean_norm(s)
+        dx_norm = euclidean_norm(x_next - x)
         df_abs = abs(f_next - fx)
 
         decision = "continue"
@@ -186,20 +184,26 @@ def davidson_fletcher_powell(
             }
 
         prev_eps2_satisfied = eps2_satisfied
+        prev_x = x
+        prev_grad = grad
         x = x_next
         k += 1
 
 
 eps1 = 1e-4
 eps2 = 1e-4
-delta = 1e-6
+delta = min(1e-6, eps1, eps2)
 M = 100
-x0 = np.array([2.0, 1.5], dtype=float)
-
+x0 = np.array([
+    200.0, 
+    -100.0, 
+    # 0
+    ], dtype=float)
+# (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
 
 def f(x):
+    # return (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
     return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
-
 
 def main():
     result = davidson_fletcher_powell(f, x0, eps1, eps2, delta, M)

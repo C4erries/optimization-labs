@@ -23,26 +23,27 @@ def newton_raphson(
     initial_step=0.1,
     max_phi_iterations=50,
 ):
-    if eps1 <= 0:
-        raise ValueError("eps1 must be positive.")
-    if eps2 <= 0:
-        raise ValueError("eps2 must be positive.")
-    if delta <= 0:
-        raise ValueError("delta must be positive.")
+    if eps1 <= 0 or eps2 <= 0 or delta <= 0:
+        raise ValueError("eps1, eps2 and delta must be positive.")
     if M < 0:
         raise ValueError("M must be non-negative.")
 
     eval_f, cache, stats = make_cached_nd_function(func)
     x = np.asarray(x0, dtype=float).reshape(-1)
-    history = []
+    history =[]
+    
+    # Шаг 2. Положить k = 0
     k = 0
     prev_eps2_satisfied = False
 
     while True:
         fx = eval_f(x)
+        
+        # Шаг 3. Вычислить grad f(x^k)
         grad = numerical_gradient(eval_f, x, delta)
         grad_norm = euclidean_norm(grad)
 
+        # Шаг 4. Проверить выполнение условия ||grad f(x^k)|| <= eps1
         if grad_norm <= eps1:
             history.append(
                 {
@@ -69,6 +70,7 @@ def newton_raphson(
                 "reason": "gradient",
             }
 
+        # Шаг 5. Проверить k >= M
         if k >= M:
             history.append(
                 {
@@ -95,16 +97,21 @@ def newton_raphson(
                 "reason": "max_iterations",
             }
 
+        # Шаг 6. Вычислить элементы матрицы H(x^k)
         hessian = numerical_hessian(eval_f, x, delta)
 
+        # Шаг 7 и 8. Найти обратную матрицу и проверить H^{-1} > 0
         if is_positive_definite(hessian):
             try:
+                # Направление Ньютона: d^k = -H^{-1} * grad
                 direction = -np.linalg.solve(hessian, grad)
                 direction_type = "Newton"
             except np.linalg.LinAlgError:
+                # В случае вычислительной ошибки обращаем в градиентный спуск
                 direction = -grad
                 direction_type = "Steepest fallback"
         else:
+            # Шаг 8б. Иначе положить d^k = -grad
             direction = -grad
             direction_type = "Steepest fallback"
 
@@ -135,22 +142,27 @@ def newton_raphson(
                 "reason": "zero_direction",
             }
 
+        # Шаг 10. Найти шаг t_k^* из условия минимума (Ньютон-Рафсон)
         phi = lambda t: eval_f(x + t * direction)
         phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
-        phi_eps = eps2 / max(1.0, direction_norm)
+        phi_eps = (eps2 * 0.01) / max(1.0, direction_norm)
         t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
 
+        # Шаг 11. Вычислить x^{k+1}
         x_next = x + t_k * direction
         f_next = eval_f(x_next)
+        
+        # Шаг 12. Проверить выполнение неравенств (строго <)
         dx_norm = euclidean_norm(x_next - x)
         df_abs = abs(f_next - fx)
 
         decision = "continue"
-        eps2_satisfied = dx_norm <= eps2 and df_abs <= eps2
+        eps2_satisfied = dx_norm < eps2 and df_abs < eps2
+        
         if eps2_satisfied and prev_eps2_satisfied:
-            decision = "eps2 x2 -> stop"
+            decision = "eps2 twice -> stop"
         elif eps2_satisfied:
-            decision = "eps2 x1"
+            decision = "eps2 once"
 
         history.append(
             {
@@ -181,12 +193,15 @@ def newton_raphson(
 
         prev_eps2_satisfied = eps2_satisfied
         x = x_next
+        
+        # Шаг 12б. k = k + 1
         k += 1
 
 
 eps1 = 1e-4
 eps2 = 1e-4
-delta = 1e-6
+# ВАЖНО: delta изменено на 1e-4 для стабильности вторых производных
+delta = 1e-4
 M = 100
 x0 = np.array([2.0, 1.5], dtype=float)
 
@@ -210,8 +225,7 @@ def main():
     print("Steps:")
     print(
         format_table(
-            result["history"],
-            [
+            result["history"],[
                 {"key": "k", "title": "k", "align": "right"},
                 {"key": "x_k", "title": "x_k"},
                 {"key": "f_k", "title": "f(x_k)", "align": "right"},

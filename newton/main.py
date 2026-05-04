@@ -23,26 +23,27 @@ def newton_method(
     initial_step=0.1,
     max_phi_iterations=50,
 ):
-    if eps1 <= 0:
-        raise ValueError("eps1 must be positive.")
-    if eps2 <= 0:
-        raise ValueError("eps2 must be positive.")
-    if delta <= 0:
-        raise ValueError("delta must be positive.")
+    if eps1 <= 0 or eps2 <= 0 or delta <= 0:
+        raise ValueError("eps1, eps2 and delta must be positive.")
     if M < 0:
         raise ValueError("M must be non-negative.")
 
     eval_f, cache, stats = make_cached_nd_function(func)
     x = np.asarray(x0, dtype=float).reshape(-1)
-    history = []
+    history =[]
+    
+    # Шаг 2
     k = 0
     prev_eps2_satisfied = False
 
     while True:
         fx = eval_f(x)
+        
+        # Шаг 3. Вычислить grad f(x^k)
         grad = numerical_gradient(eval_f, x, delta)
         grad_norm = euclidean_norm(grad)
 
+        # Шаг 4. Проверить критерий окончания ||grad f(x^k)|| <= eps1
         if grad_norm <= eps1:
             history.append(
                 {
@@ -69,6 +70,7 @@ def newton_method(
                 "reason": "gradient",
             }
 
+        # Шаг 5. Проверить k >= M
         if k >= M:
             history.append(
                 {
@@ -95,34 +97,49 @@ def newton_method(
                 "reason": "max_iterations",
             }
 
+        # Шаг 6. Вычислить матрицу Гессе H(x^k)
         hessian = numerical_hessian(eval_f, x, delta)
 
+        # Шаг 7 и 8. Найти обратную матрицу и проверить условие H^{-1} > 0
+        # (Проверка H > 0 эквивалентна H^{-1} > 0)
         if is_positive_definite(hessian):
             try:
-                direction = -np.linalg.solve(hessian, grad)
-                t_k = 1.0
+                # Шаг 7: явно находим H^{-1}(x^k)
+                inv_hessian = np.linalg.inv(hessian)
+                # Шаг 9: определяем направление Ньютона d^k
+                direction = -inv_hessian.dot(grad)
                 step_type = "Newton"
+                t_k = 1.0
+                
+                # Замечание 7.1.a: если с шагом t_k=1 функция не убывает,
+                # заменяем на метод градиентного спуска с регулировкой шага (линейный поиск)
+                if eval_f(x + t_k * direction) >= fx:
+                    step_type = "Newton + line search"
+                    phi = lambda t: eval_f(x + t * direction)
+                    phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
+                    phi_eps = eps2 / max(1.0, euclidean_norm(direction))
+                    t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
+                    
             except np.linalg.LinAlgError:
+                # На случай вычислительной вырожденности
                 direction = -grad
-                step_type = "Steepest fallback"
+                step_type = "Steepest"
                 phi = lambda t: eval_f(x + t * direction)
-                phi_a, phi_b = bracket_minimum_on_ray(
-                    phi, initial_step, max_phi_iterations
-                )
+                phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
                 phi_eps = eps2 / max(1.0, euclidean_norm(direction))
                 t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
-                direction = t_k * direction
         else:
+            # Шаг 8.б. Условие H^{-1} > 0 не выполнено
             direction = -grad
-            step_type = "Steepest fallback"
+            step_type = "Steepest"
+            
+            # Шаг 10. Находим минимум по направлению антиградиента
             phi = lambda t: eval_f(x + t * direction)
-            phi_a, phi_b = bracket_minimum_on_ray(
-                phi, initial_step, max_phi_iterations
-            )
+            phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
             phi_eps = eps2 / max(1.0, euclidean_norm(direction))
             t_k, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
-            direction = t_k * direction
 
+        # Обработка нулевого направления
         direction_norm = euclidean_norm(direction)
         if direction_norm == 0:
             history.append(
@@ -150,17 +167,21 @@ def newton_method(
                 "reason": "zero_direction",
             }
 
-        x_next = x + direction
+        # Шаг 10. Найти точку x^{k+1}
+        x_next = x + t_k * direction
         f_next = eval_f(x_next)
+        
+        # Шаг 11. Проверить выполнение условий (используем строго < по учебнику)
         dx_norm = euclidean_norm(x_next - x)
         df_abs = abs(f_next - fx)
 
         decision = "continue"
-        eps2_satisfied = dx_norm <= eps2 and df_abs <= eps2
+        eps2_satisfied = dx_norm < eps2 and df_abs < eps2
+        
         if eps2_satisfied and prev_eps2_satisfied:
-            decision = "eps2 x2 -> stop"
+            decision = "eps2 twice -> stop"
         elif eps2_satisfied:
-            decision = "eps2 x1"
+            decision = "eps2 once"
 
         history.append(
             {
@@ -196,7 +217,8 @@ def newton_method(
 
 eps1 = 1e-4
 eps2 = 1e-4
-delta = 1e-6
+# ОЧЕНЬ ВАЖНО: delta изменено на 1e-4 для стабильности вторых производных!
+delta = 1e-4 
 M = 100
 x0 = np.array([2.0, 1.5], dtype=float)
 
@@ -220,8 +242,7 @@ def main():
     print("Steps:")
     print(
         format_table(
-            result["history"],
-            [
+            result["history"],[
                 {"key": "k", "title": "k", "align": "right"},
                 {"key": "x_k", "title": "x_k"},
                 {"key": "f_k", "title": "f(x_k)", "align": "right"},
@@ -236,7 +257,6 @@ def main():
             ],
         )
     )
-
 
 if __name__ == "__main__":
     main()

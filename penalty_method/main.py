@@ -90,7 +90,7 @@ def penalty_method(
         # Вычисляем штраф в найденной точке: P(x*(r^k), r^k)
         P_next = P_func(x_next, r)
         
-        # Считаем норму нарушения ограничений для красивого вывода в таблицу
+        # Считаем норму нарушения ограничений для вывода в таблицу
         eq_vals_next = np.array([g(x_next) for g in eval_eq], dtype=float) if eval_eq else np.array([])
         ineq_vals_next = np.array([g(x_next) for g in eval_ineq], dtype=float) if eval_ineq else np.array([])
         
@@ -221,7 +221,6 @@ def main():
                 {"key": "r_k", "title": "r_k", "align": "right"},
                 {"key": "x_k", "title": "x_k"},
                 {"key": "f_k", "title": "f(x_k)", "align": "right"},
-                # Сделал заголовки более понятными (что они считаются для x_{k+1})
                 {"key": "g_norm", "title": "||g(x_{k+1})||", "align": "right"},
                 {"key": "penalty", "title": "P(x_{k+1})", "align": "right"},
                 {"key": "inner_iter", "title": "inner_iters", "align": "right"},

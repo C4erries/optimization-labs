@@ -181,7 +181,6 @@ def _make_result(x, lambdas, mus, fx, eq_vals, ineq_vals, history, cache_f, stat
     }
 
 
-# Для проверки используем Пример 9.8 из учебника (стр. 254)
 eps1 = 0.001
 delta = 1e-6
 M = 20

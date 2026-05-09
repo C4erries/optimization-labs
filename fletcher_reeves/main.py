@@ -156,7 +156,7 @@ def fletcher_reeves(
                 "k": k,
                 "x_k": format_vector(x),
                 "f_k": fx,
-                "grad_norm": grad_norm,
+                "grad_norm": f"{grad_norm:.8f}",
                 "beta": "-" if k == 0 else beta,
                 "t_k": t_k,
                 "x_next": format_vector(x_next),

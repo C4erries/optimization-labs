@@ -1,40 +1,78 @@
 import numpy as np
+from math import sqrt
 
+# Оставляем импорты для таблиц и кэширования из твоей структуры
 from utils import (
-    bracket_minimum_on_ray,
-    euclidean_norm,
-    format_vector,
-    golden_section_phi_search,
     make_cached_nd_function,
 )
 from utils.table import format_table
 
 
-def _minimize_along_direction(eval_f, x, direction, initial_step, max_phi_iterations, phi_eps):
-    # Эта функция у вас написана верно: она делает 1D минимизацию вдоль луча
-    phi = lambda t: eval_f(x + t * direction)
-    f0 = phi(0.0)
-    f_plus = phi(initial_step)
-    f_minus = phi(-initial_step)
+def format_vector(vector):
+    return "[" + ", ".join(f"{value:.6f}".rstrip("0").rstrip(".") for value in vector) + "]"
 
-    if f_plus >= f0 and f_minus >= f0:
-        return 0.0, x.copy(), f0
+def euclidean_norm(vector):
+    array = np.asarray(vector, dtype=float)
+    if array.size == 0:
+        return 0.0
+    return float(np.linalg.norm(array))
 
-    if f_minus < f_plus:
-        signed_direction = -direction
-        phi = lambda t: eval_f(x + t * signed_direction)
-        sign = -1.0
-    else:
-        signed_direction = direction
-        phi = lambda t: eval_f(x + t * signed_direction)
-        sign = 1.0
+def bracket_minimum_on_ray(phi, initial_step, max_iterations):
+    if initial_step <= 0:
+        raise ValueError("initial_step must be positive.")
 
-    phi_a, phi_b = bracket_minimum_on_ray(phi, initial_step, max_phi_iterations)
-    t_abs, _ = golden_section_phi_search(phi, phi_a, phi_b, phi_eps)
-    t_k = sign * t_abs
-    x_next = x + t_k * direction
-    f_next = eval_f(x_next)
-    return t_k, x_next, f_next
+    t_prev = 0.0
+    f_prev = phi(t_prev)
+    t_curr = initial_step
+    f_curr = phi(t_curr)
+
+    if f_curr >= f_prev:
+        return t_prev, t_curr
+
+    current_step = initial_step
+
+    for _ in range(max_iterations):
+        current_step *= 2
+        t_next = current_step
+        f_next = phi(t_next)
+
+        if f_next >= f_curr:
+            return t_prev, t_next
+
+        t_prev = t_curr
+        f_prev = f_curr
+        t_curr = t_next
+        f_curr = f_next
+
+    raise RuntimeError("Failed to bracket a phi minimum.")
+
+def golden_section_phi_search(phi, a, b, length_limit):
+    if b <= a:
+        raise ValueError("Right border must be greater than left border.")
+    if length_limit <= 0:
+        raise ValueError("length_limit must be positive.")
+
+    tau = (sqrt(5) - 1) / 2
+    x1 = b - tau * (b - a)
+    x2 = a + tau * (b - a)
+    fx1 = phi(x1)
+    fx2 = phi(x2)
+
+    while b - a > length_limit:
+        if fx1 <= fx2:
+            b = x2
+            x2 = x1
+            fx2 = fx1
+            x1 = b + a - x2
+            fx1 = phi(x1)
+        else:
+            a = x1
+            x1 = x2
+            fx1 = fx2
+            x2 = b + a - x1
+            fx2 = phi(x2)
+
+    return (a + b) / 2, (a, b)
 
 
 def powell_method(
@@ -51,166 +89,123 @@ def powell_method(
         raise ValueError("M must be non-negative.")
 
     eval_f, cache, stats = make_cached_nd_function(func)
-    x = np.asarray(x0, dtype=float).reshape(-1)
-    n = x.size
     
-    # Шаг 1. Задать начальные направления поиска (единичные орты)
-    # Используем индексацию 1..n для удобства сопоставления с учебником.
-    # d[0] будет использоваться для хранения d_n.
-    d =[np.zeros(n) for _ in range(n + 1)]
-    for i in range(1, n + 1):
-        d[i][i - 1] = 1.0
-
-    history =[]
+    xk = np.asarray(x0, dtype=float).reshape(-1)
+    n = len(xk)
+    x_star = xk.copy()
+    
+    d = np.eye(n)
+    d = np.vstack([d[-1], d])  # Матрица направлений
+    
+    yi = xk.copy()
+    y0 = yi.copy()
+    
+    history = []
     k = 0
-    x_k = x.copy()
 
     while k < M:
-        # Шаг 1 (начало итерации): Положим d_0 = d_n, y^0 = x^k
-        d[0] = d[n].copy()
-        
-        # Массив точек y^0, y^1, ..., y^{n+1}
-        y =[np.zeros(n) for _ in range(n + 2)]
-        y[0] = x_k.copy()
-        
-        # Массив для хранения скалярных шагов t_i
-        t = np.zeros(n + 1)
-        
+        t_values = []
         stop_reason = None
         
-        # Шаг 2. Найти y^{i+1} = y^i + t_i * d_i для i = 0, ..., n
+        # Внутренний цикл по направлениям
         for i in range(n + 1):
             direction = d[i]
-            dir_norm = euclidean_norm(direction)
             
-            if dir_norm == 0:
-                t[i] = 0.0
-                y[i+1] = y[i].copy()
+            if euclidean_norm(direction) == 0:
+                t = 0.0
             else:
-                phi_eps = eps / max(1.0, dir_norm)
-                t[i], y[i+1], _ = _minimize_along_direction(
-                    eval_f,
-                    y[i],
-                    direction,
-                    initial_step,
-                    max_phi_iterations,
-                    phi_eps,
-                )
+                phi = lambda t: eval_f(yi + t * direction)
                 
-            # Шаг 3. Проверить выполнение условий остановки внутри цикла
-            if i == n - 1:
-                # б) если i = n - 1, проверить y^n == y^0
-                if euclidean_norm(y[n] - y[0]) < 1e-10:
-                    x_k = y[n].copy()
-                    stop_reason = "y^n == y^0"
-                    break
-            elif i == n:
-                # в) если i = n, проверить y^{n+1} == y^1
-                if euclidean_norm(y[n+1] - y[1]) < 1e-10:
-                    x_k = y[n+1].copy()
-                    stop_reason = "y^{n+1} == y^1"
-                    break
+                f0 = phi(0.0)
+                f_plus = phi(initial_step)
+                f_minus = phi(-initial_step)
+                
+                if f_plus >= f0 and f_minus >= f0:
+                    t = 0.0
+                else:
+                    sign = -1.0 if f_minus < f_plus else 1.0
+                    phi_directed = lambda step: eval_f(yi + step * sign * direction)
+                    
+                    a, b = bracket_minimum_on_ray(phi_directed, initial_step, max_phi_iterations)
+                    
+                    t_abs, _ = golden_section_phi_search(phi_directed, a, b, eps)
+                    t = sign * t_abs
+            
+            t_values.append(t)
+            
+            yi = yi + t * direction
+            
+            if i == 0:
+                y1 = yi.copy()
+                
+            # Проверки условий остановки внутри цикла
+            if (i == n - 1) and (euclidean_norm(yi - y0) < eps):
+                x_star = yi.copy()
+                stop_reason = "y^n == y^0"
+                break
+                
+            if (i == n) and (euclidean_norm(yi - y1) < eps):
+                x_star = yi.copy()
+                stop_reason = "y^{n+1} == y^1"
+                break
 
         if stop_reason:
-            t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t[:i+1]))
+            t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t_values))
             history.append({
-                "k": k,
-                "x_k": format_vector(y[0]),
-                "t_values": t_str,
-                "new_dir": "-",
-                "rank": "-",
-                "x_next": format_vector(x_k),
-                "dx_norm": 0.0,
-                "decision": f"stop ({stop_reason})"
+                "k": k, "x_k": format_vector(xk), "t_values": t_str,
+                "new_dir": "-", "rank": "-", "x_next": format_vector(x_star),
+                "dx_norm": 0.0, "decision": f"stop ({stop_reason})"
             })
-            return {
-                "x_star": x_k,
-                "f_star": eval_f(x_k),
-                "iterations": k + 1,
-                "history": history,
-                "cache": cache,
-                "stats": stats,
-                "reason": stop_reason,
-            }
+            return {"x_star": x_star, "f_star": eval_f(x_star), "iterations": k + 1, "history": history, "cache": cache, "stats": stats, "reason": stop_reason}
             
-        # Шаг 4. Положить x^{k+1} = y^{n+1}
-        x_next = y[n+1].copy()
-        dx_norm = euclidean_norm(x_next - y[0])
-        
-        # Строим новое сопряженное направление
-        d_new = y[n+1] - y[1]
-        
-        # Формируем новую систему направлений: d_bar
-        d_bar =[np.zeros(n) for _ in range(n + 1)]
-        d_bar[n] = d_new.copy()
-        for i in range(1, n):
-            d_bar[i] = d[i+1].copy()
-            
-        # Проверяем линейную независимость (ранг)
-        matrix_D = np.column_stack([d_bar[i] for i in range(1, n+1)])
-        rank = np.linalg.matrix_rank(matrix_D)
+        x_next = yi.copy()
+        dx_norm = euclidean_norm(x_next - xk)
         
         if dx_norm < eps:
-            decision = "stop (||dx|| < eps)"
-        else:
-            decision = "update dirs" if rank == n else "keep old dirs"
-            
-        t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t))
+            x_star = x_next.copy()
+            stop_reason = "dx < eps"
+            t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t_values))
+            history.append({
+                "k": k, "x_k": format_vector(xk), "t_values": t_str,
+                "new_dir": "-", "rank": "-", "x_next": format_vector(x_star),
+                "dx_norm": f"{dx_norm:.6f}", "decision": f"stop ({stop_reason})"
+            })
+            return {"x_star": x_star, "f_star": eval_f(x_star), "iterations": k + 1, "history": history, "cache": cache, "stats": stats, "reason": stop_reason}
+
+        # Обновление матрицы направлений
+        new_dir = yi - y1
+        d_ = np.delete(d, 1, axis=0)
+        d_[0] = new_dir.copy()
+        d_ = np.vstack([d_, new_dir.copy()])
         
+        rank = np.linalg.matrix_rank(d_[1:])
+        
+        if rank == n:
+            d = d_
+            y0 = x_next.copy()
+            decision = "update dirs"
+        else:
+            y0 = x_next.copy()
+            decision = "keep old dirs"
+            
+        t_str = ", ".join(f"t{idx}={val:.4f}" for idx, val in enumerate(t_values))
         history.append({
-            "k": k,
-            "x_k": format_vector(y[0]),
-            "t_values": t_str, # Выводим t_i как независимые скаляры!
-            "new_dir": format_vector(d_new),
-            "rank": f"{rank}/{n}",
-            "x_next": format_vector(x_next),
-            "dx_norm": f"{dx_norm:.6f}",
-            "decision": decision
+            "k": k, "x_k": format_vector(xk), "t_values": t_str,
+            "new_dir": format_vector(new_dir), "rank": f"{rank}/{n}",
+            "x_next": format_vector(x_next), "dx_norm": f"{dx_norm:.6f}", "decision": decision
         })
         
-        # a) если ||x^{k+1} - x^k|| < eps, поиск завершить
-        if dx_norm < eps:
-            return {
-                "x_star": x_next,
-                "f_star": eval_f(x_next),
-                "iterations": k + 1,
-                "history": history,
-                "cache": cache,
-                "stats": stats,
-                "reason": "dx < eps",
-            }
-            
-        # Обновляем направления только если матрица независима
-        if rank == n:
-            for i in range(1, n+1):
-                d[i] = d_bar[i].copy()
-        # Иначе - оставляем старые
-        
-        x_k = x_next
+        xk = x_next.copy()
         k += 1
 
-    return {
-        "x_star": x_k,
-        "f_star": eval_f(x_k),
-        "iterations": k,
-        "history": history,
-        "cache": cache,
-        "stats": stats,
-        "reason": "max_iterations",
-    }
+    return {"x_star": xk, "f_star": eval_f(xk), "iterations": k, "history": history, "cache": cache, "stats": stats, "reason": "max_iterations"}
 
 
-eps = 1e-4
+eps = 1e-5
 M = 100
-x0 = np.array([
-    2.0, 
-    1.5, 
-    # 0
-    ], dtype=float)
-# (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
+x0 = np.array([20.0, -10.5], dtype=float)
 
 def f(x):
-    # return (x[0]+2*x[1]-5)**4 + (x[1]-x[2])**2 + 3 + (x[0]+x[1]+x[2]-7)**2
     return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
 
 def main():
@@ -228,10 +223,9 @@ def main():
     print("\nSteps:")
     print(
         format_table(
-            result["history"],[
+            result["history"], [
                 {"key": "k", "title": "k", "align": "right"},
                 {"key": "x_k", "title": "x_k"},
-                # Заменил "векторный" вывод t_i на явный скалярный:
                 {"key": "t_values", "title": "1D steps (t_i)"}, 
                 {"key": "new_dir", "title": "new d_n (y^{n+1}-y^1)"},
                 {"key": "rank", "title": "rank"},
@@ -244,4 +238,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

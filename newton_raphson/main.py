@@ -200,14 +200,14 @@ def newton_raphson(
 
 eps1 = 1e-4
 eps2 = 1e-4
-# ВАЖНО: delta изменено на 1e-4 для стабильности вторых производных
 delta = 1e-4
 M = 100
-x0 = np.array([2.0, 1.5], dtype=float)
+x0 = np.array([5.0, 2026], dtype=float)
 
 
 def f(x):
-    return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
+    return (x[0] + 3*x[1] - 7)**4 + (x[0]-1)**6 +5
+    # return 3 * x[0] * x[0] + 4 * x[1] * x[1] - 2 * x[0] * x[1] + x[0]
 
 
 def main():

@@ -217,7 +217,6 @@ def newton_method(
 
 eps1 = 1e-4
 eps2 = 1e-4
-# ОЧЕНЬ ВАЖНО: delta изменено на 1e-4 для стабильности вторых производных!
 delta = 1e-4 
 M = 100
 x0 = np.array([2.0, 1.5], dtype=float)

@@ -138,7 +138,7 @@ def powell_method(
             if i == 0:
                 y1 = yi.copy()
                 
-            # Проверки условий остановки внутри цикла
+            # Проверки условий остановки внутри цикл
             if (i == n - 1) and (euclidean_norm(yi - y0) < eps):
                 x_star = yi.copy()
                 stop_reason = "y^n == y^0"

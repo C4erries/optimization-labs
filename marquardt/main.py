@@ -112,7 +112,7 @@ def marquardt_method(
                 # (Мы решаем систему (H + mu*E) * d = -grad)
                 direction = -np.linalg.solve(modified_hessian, grad)
             except np.linalg.LinAlgError:
-                # Если матрица не положительно определена (или вырождена)
+                # Если матрица не положительно определена
                 # Шаг 13: mu = 2*mu и на Шаг 7
                 mu *= 2
                 continue
@@ -208,7 +208,7 @@ def main():
                 {"key": "f_k", "title": "f(x_k)", "align": "right"},
                 {"key": "grad_norm", "title": "||grad||_2", "align": "right"},
                 {"key": "mu", "title": "mu", "align": "right"},
-                {"key": "attempts", "title": "Inner tries", "align": "right"},
+                # {"key": "attempts", "title": "Inner tries", "align": "right"},
                 {"key": "step_norm", "title": "||d||_2", "align": "right"},
                 {"key": "x_next", "title": "x_{k+1}"},
                 {"key": "f_next", "title": "f(x_{k+1})", "align": "right"},
